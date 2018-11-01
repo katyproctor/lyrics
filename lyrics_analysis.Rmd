@@ -1,0 +1,124 @@
+---
+title: "song lyric analysis"
+author: "kp"
+date: "29 September 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(stringr)
+library(tidytext) # for tf-idf matrix
+library(topicmodels) # for LDA
+library(ggplot2)
+```
+
+## Import data
+Read csv of song lyrics and view subset:
+```{r}
+dat <<- read.csv("./songdata.csv", strings = FALSE)
+#head(dat)
+#tail(dat)
+summary(dat$text)
+```
+
+## Data Clean/Exploration
+Data looks fairly clean aside from some misspelling that I'm not going to bother dealing with.
+
+Look at number of artists that appear frequently.
+
+```{r}
+dat <- dat %>% 
+  mutate(sa = paste0(artist, "_", song)) %>% 
+  group_by(artist) %>% 
+  mutate(n = n())
+
+table(dat$artist[dat$n > 180])
+```
+
+
+
+Remove one-hit wonders
+```{r}
+dat <- dat[dat$n > 10,]
+```
+
+split into words
+```{r} 
+by_word<- dat %>%
+  unnest_tokens(word, text) 
+
+by_word$link <- NULL
+by_word$n <- NULL
+
+word_counts <- by_word %>%
+  anti_join(stop_words) %>%
+  count(sa, word, sort = TRUE) %>%
+  ungroup()
+
+```
+
+## LDA on songs
+
+Get document-term matrix
+```{r}
+songs_dtm <- word_counts %>%
+  cast_dtm(sa, word, n)
+
+songs_dtm
+```
+
+Run LDA
+
+```{r}
+# try 8 groupings to start, though suspect this is too high - each run takes ~30 mins on full data
+songs_lda <- LDA(songs_dtm, k = 8, control = list(seed = 1234))
+
+```
+
+look at probabilities
+```{r}
+song_topics <- tidy(songs_lda, matrix = "beta")
+
+# take a guess at possible topics
+song_topics[song_topics$term %in% "love",] # topic 4
+
+```
+
+
+Top terms per topic
+```{r}
+top_terms <- song_topics %>%
+  group_by(topic) %>%
+  top_n(10, beta) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+
+top_terms
+```
+  
+```{r}
+# plot top 8 terms per topic
+
+top_terms %>%
+  mutate(term = reorder(term, beta)) %>%
+  ggplot(aes(term, beta, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  coord_flip()
+```
+
+# look at documents per group (artists/songs)
+
+```{r}
+songs_gamma <- tidy(songs_lda, matrix = "gamma")
+
+# for each song, assign topic with highest gamma value
+topic_song <- song_gamma %>% 
+  group_by()
+
+```
+
+  
+# next steps - do one just beatles - webscrape more varied songs - predictive 
