@@ -115,8 +115,20 @@ top_terms %>%
 songs_gamma <- tidy(songs_lda, matrix = "gamma")
 
 # for each song, assign topic with highest gamma value
-topic_song <- song_gamma %>% 
-  group_by()
+topic_song <- songs_gamma %>% 
+  group_by(document) %>% 
+  arrange(desc(gamma)) %>% 
+  slice(1) # take top topic
+
+by_artist <- topic_song %>% 
+  separate(col = document, into = c("artist", "song"), sep = "_")
+# look at lyric diversity by artist
+hist(by_artist$topic[by_artist$artist %in% "Adele"])
+hist(by_artist$topic[by_artist$artist %in% "Outkast"])
+hist(by_artist$topic[by_artist$artist %in% "Talking Heads"])
+hist(by_artist$topic[by_artist$artist %in% "Queen"])
+hist(by_artist$topic[by_artist$artist %in% "Cher"])
+hist(by_artist$topic[by_artist$artist %in% "Adam Sandler"]) # ???
 
 ```
 
